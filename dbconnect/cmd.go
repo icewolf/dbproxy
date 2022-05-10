@@ -2,6 +2,7 @@ package dbconnect
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"strconv"
@@ -15,28 +16,20 @@ import (
 // The tunnel package is responsible for appending this to tunnel.Commands().
 func Cmd() *cli.Command {
 	return &cli.Command{
-		Category:  "Database Connect (ALPHA) - Deprecated",
-		Name:      "db-connect",
-		Usage:     "deprecated: Access your SQL database from Cloudflare Workers or the browser",
+		Category:  "Database Proxy (db-connect)",
+		Name:      "start",
+		Usage:     "Access your SQL database from Cloudflare Workers or the browser",
 		ArgsUsage: " ",
 		Description: `
-		This feature has been deprecated. 
-		Please see: 
-
-		cloudflared access tcp --help 
-
-		for setting up database connections to the cloudflare edge.
-		
-
 		Creates a connection between your database and the Cloudflare edge.
 		Now you can execute SQL commands anywhere you can send HTTPS requests.
 
 		Connect your database with any of the following commands, you can also try the "playground" without a database:
 
-			cloudflared db-connect --url postgres://user:pass@localhost?sslmode=disable \
+			dbproxy start --url postgres://user:pass@localhost?sslmode=disable \
 			                       --auth-domain mysite.cloudflareaccess.com --application-aud my-access-policy-tag
-			cloudflared db-connect --url mysql://localhost --insecure
-			cloudflared db-connect --playground
+			dbproxy start --url mysql://localhost --insecure
+			dbproxy start --playground
 		
 		Requests should be authenticated using Cloudflare Access, learn more about how to enable it here:
 
@@ -48,10 +41,10 @@ func Cmd() *cli.Command {
 				Usage:   "URL to the database (eg. postgres://user:pass@localhost?sslmode=disable)",
 				EnvVars: []string{"TUNNEL_URL"},
 			}),
-			altsrc.NewStringFlag(&cli.StringFlag{
-				Name:    "hostname",
-				Usage:   "Hostname to accept commands over HTTPS (eg. sql.mysite.com)",
-				EnvVars: []string{"TUNNEL_HOSTNAME"},
+			altsrc.NewIntFlag(&cli.IntFlag{
+				Name:    "port",
+				Usage:   "Port on which to expose proxy",
+				EnvVars: []string{"TUNNEL_PORT"},
 			}),
 			altsrc.NewStringFlag(&cli.StringFlag{
 				Name:    "auth-domain",
@@ -119,6 +112,10 @@ func CmdBefore(c *cli.Context) error {
 		return nil
 	}
 
+	if !c.IsSet("port") {
+		log.Fatal("must specify --port, so tunnel can reliably connect to proxy on every run")
+	}
+
 	// Ensure that secure configurations specify a hostname, domain, and tag for JWT validation.
 	if !c.IsSet("auth-domain") || !c.IsSet("application-aud") {
 		log.Fatal("must specify --auth-domain and --application-aud unless you want to run in --insecure mode")
@@ -151,15 +148,14 @@ func CmdAction(c *cli.Context) error {
 	// Since the Proxy should only talk to the tunnel daemon, find the next available
 	// localhost port and start to listen to requests.
 	go func() {
-		err := proxy.Start(ctx, "127.0.0.1:", listenerC)
+		addr := fmt.Sprintf("127.0.0.1:%d", c.Int("port"))
+		err := proxy.Start(ctx, addr, listenerC)
 		if err != nil {
 			log.Fatal(err)
 		}
 	}()
 
-	// Block until the the Proxy is online, retreive its address, and change the url to point to it.
-	// This is effectively "handing over" control to the tunnel package so it can run the tunnel daemon.
-	c.Set("url", "https://"+(<-listenerC).Addr().String())
-
-	return nil
+	for {
+		log.Printf("Connected. Listening for requests at %s.", (<-listenerC).Addr().String())
+	}
 }
