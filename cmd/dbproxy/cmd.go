@@ -33,9 +33,9 @@ func Cmd() *cli.Command {
 
 		Connect your database with any of the following commands, you can also try the "playground" without a database:
 
-			cloudflared db-connect --hostname sql.mysite.com --url postgres://user:pass@localhost?sslmode=disable \
+			cloudflared db-connect --url postgres://user:pass@localhost?sslmode=disable \
 			                       --auth-domain mysite.cloudflareaccess.com --application-aud my-access-policy-tag
-			cloudflared db-connect --hostname sql-dev.mysite.com --url mysql://localhost --insecure
+			cloudflared db-connect --url mysql://localhost --insecure
 			cloudflared db-connect --playground
 		
 		Requests should be authenticated using Cloudflare Access, learn more about how to enable it here:
@@ -120,8 +120,8 @@ func CmdBefore(c *cli.Context) error {
 	}
 
 	// Ensure that secure configurations specify a hostname, domain, and tag for JWT validation.
-	if !c.IsSet("hostname") || !c.IsSet("auth-domain") || !c.IsSet("application-aud") {
-		log.Fatal("must specify --hostname, --auth-domain, and --application-aud unless you want to run in --insecure mode")
+	if !c.IsSet("auth-domain") || !c.IsSet("application-aud") {
+		log.Fatal("must specify --auth-domain and --application-aud unless you want to run in --insecure mode")
 	}
 
 	return nil
