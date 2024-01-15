@@ -4,7 +4,7 @@
 
 To run, use a similar command to the old one, but with `cloudflared dbconnect [args] replaced with dbproxy.exe start [args]`
 
-A new `--proxy` parameter is required. This is the port that the db connect API will be served from, so it should be a port that is available on the server. `--hostname` is no longer required.
+A new `--port` parameter is required. This is the port that the db connect API will be served from, so it should be a port that is available on the server. `--hostname` is no longer required.
 
 
 ## How it works
