@@ -7,9 +7,12 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+var version = "dev"
+
 func main() {
 	app := &cli.App{}
 	app.Name = "dbproxy"
+	app.Version = version
 	app.Usage = "Standalone implementation of Cloudflare's db-connect"
 	app.UsageText = "dbproxy [global options] [command] [command options]"
 	app.Commands = commands()
