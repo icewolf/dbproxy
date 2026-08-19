@@ -25,6 +25,7 @@ func TestNewSQLClient(t *testing.T) {
 		"clickhouse://127.0.0.1:9000/?debug",
 		"sqlite3::memory:",
 		"file:test.db?cache=shared",
+		"/",
 	}
 
 	for _, originURL := range originURLs {
@@ -36,7 +37,6 @@ func TestNewSQLClient(t *testing.T) {
 
 	originURLs = []string{
 		"",
-		"/",
 		"http://localhost",
 		"coolthing://user:pass@127.0.0.1",
 	}
@@ -193,7 +193,7 @@ func helperSQLite3(t *testing.T) (context.Context, Client) {
 	t.Helper()
 
 	ctx := context.Background()
-	url, _ := url.Parse("file::memory:?cache=shared")
+	url, _ := url.Parse("sqlite3::memory:?cache=shared")
 
 	sqlite3, err := NewSQLClient(ctx, url)
 	assert.NoError(t, err)

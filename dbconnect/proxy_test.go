@@ -226,7 +226,7 @@ func TestHTTPError(t *testing.T) {
 func helperNewProxy(t *testing.T, secure ...bool) *Proxy {
 	t.Helper()
 
-	proxy, err := NewSecureProxy(context.Background(), "file::memory:?cache=shared", "test.cloudflareaccess.com", "")
+	proxy, err := NewSecureProxy(context.Background(), "sqlite3::memory:?cache=shared", "test.cloudflareaccess.com", "")
 	assert.NoError(t, err)
 	assert.NotNil(t, proxy)
 
