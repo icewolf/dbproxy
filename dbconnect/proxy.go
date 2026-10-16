@@ -149,7 +149,8 @@ func (proxy *Proxy) httpListen(ctx context.Context, listener net.Listener) error
 		Handler:      proxy.httpRouter(),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 60 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		// Must exceed cloudflared's keep-alive timeout (90s default), or it may reuse a closing connection.
+		IdleTimeout: 120 * time.Second,
 	}
 
 	go func() {
