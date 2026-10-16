@@ -143,6 +143,24 @@ func TestSQLMode(t *testing.T) {
 	}
 }
 
+func TestCommandValidateSQLReadOnly(t *testing.T) {
+	for _, originURL := range []string{"mssql://localhost", "sqlserver://localhost"} {
+		origin, _ := url.Parse(originURL)
+		client, err := NewSQLClient(context.Background(), origin)
+		assert.NoError(t, err)
+
+		cmd := &Command{Statement: "SELECT 1", Mode: "query"}
+		txx, err := cmd.ValidateSQL(client.(*SQLClient).Dialect)
+		assert.NoError(t, err)
+		assert.False(t, txx.ReadOnly, originURL)
+	}
+
+	cmd := &Command{Statement: "SELECT 1", Mode: "query"}
+	txx, err := cmd.ValidateSQL("postgres")
+	assert.NoError(t, err)
+	assert.True(t, txx.ReadOnly)
+}
+
 func helperRows(mockRows *sqlmock.Rows) *sql.Rows {
 	db, mock, _ := sqlmock.New()
 	mock.ExpectQuery("SELECT").WillReturnRows(mockRows)

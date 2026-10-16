@@ -118,7 +118,7 @@ func (cmd *Command) ValidateSQL(dialect string) (*sql.TxOptions, error) {
 
 	// In query mode, execute the transaction in read-only, unless it's Microsoft SQL
 	// which does not support that type of transaction.
-	readOnly := mode == "query" && dialect != "mssql"
+	readOnly := mode == "query" && dialect != "sqlserver"
 
 	return &sql.TxOptions{Isolation: iso, ReadOnly: readOnly}, nil
 }
