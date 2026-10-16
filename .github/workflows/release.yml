@@ -1,0 +1,93 @@
+name: Release
+
+on:
+  workflow_run:
+    workflows: ["Tests"]
+    types: [completed]
+    branches: [master]
+
+permissions:
+  contents: write
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event != 'pull_request' }}
+    outputs:
+      should_release: ${{ steps.version-check.outputs.should_release }}
+      version: ${{ steps.version-check.outputs.version }}
+      sha: ${{ steps.version-check.outputs.sha }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      - name: Check if release exists
+        id: version-check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(tr -d '[:space:]' < VERSION.txt)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          SHA=$(git log -1 --format='%H' -- VERSION.txt)
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
+          if gh release view "v$VERSION" > /dev/null 2>&1; then
+            echo "Release v$VERSION already exists, skipping"
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "No release found for v$VERSION, will create"
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: check-version
+    if: needs.check-version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [linux, windows]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.check-version.outputs.sha }}
+
+      - name: Set up tools
+        uses: jdx/mise-action@v2
+
+      - name: Build binary
+        run: just build-release ${{ matrix.target }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: dbproxy-${{ matrix.target }}
+          path: bin/dbproxy*
+
+  release:
+    needs: [check-version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v7
+        with:
+          path: bin
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ needs.check-version.outputs.version }}"
+          SHA="${{ needs.check-version.outputs.sha }}"
+          gh release create "v$VERSION" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$SHA" \
+            --title "v$VERSION" \
+            --generate-notes \
+            bin/dbproxy \
+            bin/dbproxy.exe
