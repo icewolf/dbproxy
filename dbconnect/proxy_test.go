@@ -10,8 +10,10 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/rs/zerolog"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -143,6 +145,39 @@ func TestProxyHTTPSubmit(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, test.output, str)
 	}
+}
+
+type slowClient struct {
+	delay time.Duration
+}
+
+func (c slowClient) Ping(context.Context) error { return nil }
+
+func (c slowClient) Submit(context.Context, *Command) (interface{}, error) {
+	time.Sleep(c.delay)
+	return []int{1}, nil
+}
+
+func TestProxyHTTPSubmitOutlastsWriteTimeout(t *testing.T) {
+	log := zerolog.Nop()
+	proxy := &Proxy{client: slowClient{300 * time.Millisecond}, log: &log}
+
+	server := httptest.NewUnstartedServer(proxy.httpSubmit())
+	server.Config.WriteTimeout = 100 * time.Millisecond
+	server.Start()
+	defer server.Close()
+
+	res, err := server.Client().Post(server.URL, "application/json", strings.NewReader("{\"statement\":\"Ok\",\"timeout\":1000000000}"))
+	assert.NoError(t, err)
+	if err != nil {
+		return
+	}
+	defer res.Body.Close()
+
+	data, err := io.ReadAll(res.Body)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, res.StatusCode)
+	assert.Equal(t, "[1]\n", string(data))
 }
 
 func TestProxyHTTPSubmitForbidden(t *testing.T) {

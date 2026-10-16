@@ -20,6 +20,8 @@ import (
 
 const (
 	LogFieldCFRay = "cfRay"
+
+	submitWriteGrace = 10 * time.Second
 )
 
 // Proxy is an HTTP server that proxies requests to a Client.
@@ -203,6 +205,9 @@ func (proxy *Proxy) httpSubmit() http.HandlerFunc {
 			proxy.httpRespondErr(w, r, http.StatusBadRequest, err)
 			return
 		}
+
+		// Outlast the command's timeout so slow commands still get a response.
+		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(cmd.Timeout + submitWriteGrace))
 
 		ctx := r.Context()
 		data, err := proxy.client.Submit(ctx, &cmd)
